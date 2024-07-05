@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreamento de Rotinas Diárias</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('https://images.pexels.com/photos/417173/pexels-photo-417173.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: white;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        h1 {
+            color: #fff;
+        }
+        .task {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #444;
+        }
+        .task:last-child {
+            border-bottom: none;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-top: 30px;
+        }
+        .edit-routine {
+            margin: 20px 0;
+        }
+        .clock {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        .calendar {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rastreamento de Rotinas Diárias</h1>
+        <div id="tasks"></div>
+        <button onclick="updateChart()">Atualizar Gráfico</button>
+        <button onclick="editRoutine()">Editar Rotina</button>
+        <div class="chart-container">
+            <canvas id="progressChart"></canvas>
+        </div>
+        <div class="clock" id="clock"></div>
+        <div class="calendar" id="calendar"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let tasks = [
+            "Acordar e meditação",
+            "Treino de Calistenia",
+            "Café da manhã saudável",
+            "Estudo/Leitura (manhã)",
+            "Almoço saudável",
+            "Atividades pessoais/descanso",
+            "Estudo/Leitura (tarde)",
+            "Atividades de lazer",
+            "Lanche da tarde",
+            "Tempo para cuidar da aparência",
+            "Jantar saudável",
+            "Tempo livre/atividades relaxantes",
+            "Preparar para dormir"
+        ];
+
+        const taskContainer = document.getElementById('tasks');
+        let taskStatus = new Array(tasks.length).fill(false);
+        const dailyProgress = [];
+
+        function renderTasks() {
+            taskContainer.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const taskDiv = document.createElement('div');
+                taskDiv.classList.add('task');
+                taskDiv.innerHTML = `
+                    <input type="checkbox" id="task${index}" onclick="toggleTask(${index})">
+                    <label for="task${index}">${task}</label>
+                `;
+                taskContainer.appendChild(taskDiv);
+            });
+        }
+
+        function toggleTask(index) {
+            taskStatus[index] = !taskStatus[index];
+        }
+
+        function updateChart() {
+            const completedTasks = taskStatus.filter(status => status).length;
+            const progress = (completedTasks / tasks.length) * 100;
+            dailyProgress.push(progress);
+
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dailyProgress.map((_, i) => `Dia ${i + 1}`),
+                    datasets: [{
+                        label: 'Progresso Diário (%)',
+                        data: dailyProgress,
+                        fill: false,
+                        borderColor: 'blue',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            // Reset task statuses for the next day
+            taskStatus = new Array(tasks.length).fill(false);
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => checkbox.checked = false);
+        }
+
+        function showNotification() {
+            if (Notification.permission === 'granted') {
+                new Notification('Lembrete de Rotina', {
+                    body: 'Não se esqueça de completar suas tarefas diárias!',
+                });
+            }
+        }
+
+        if (Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Configurar notificação diária
+        function scheduleDailyNotification() {
+            const now = new Date();
+            const millisTill10 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0, 0) - now;
+            if (millisTill10 < 0) {
+                millisTill10 += 86400000; // +1 day
+            }
+            setTimeout(() => {
+                showNotification();
+                setInterval(showNotification, 86400000); // Notificação diária
+            }, millisTill10);
+        }
+
+        scheduleDailyNotification();
+
+        // Função para editar a rotina
+        function editRoutine() {
+            const newTasks = prompt('Insira suas tarefas separadas por vírgula:', tasks.join(', '));
+            if (newTasks !== null) {
+                tasks = newTasks.split(',').map(task => task.trim());
+                taskStatus = new Array(tasks.length).fill(false);
+                renderTasks();
+            }
+        }
+
+        // Relógio
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        setInterval(updateClock, 1000);
+
+        // Calendário
+        function renderCalendar() {
+            const now = new Date();
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+
+            let calendarHtml = `<h3>${monthNames[now.getMonth()]} ${now.getFullYear()}</h3>`;
+            calendarHtml += `<table><tr>`;
+            const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+            weekDays.forEach(day => calendarHtml += `<th>${day}</th>`);
+            calendarHtml += `</tr><tr>`;
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarHtml += `<td></td>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                if ((day + firstDay - 1) % 7 === 0) {
+                    calendarHtml += `</tr><tr>`;
+                }
+                calendarHtml += `<td>${day}</td>`;
+            }
+
+            calendarHtml += `</tr></table>`;
+            document.getElementById('calendar').innerHTML = calendarHtml;
+        }
+
+        renderTasks();
+        renderCalendar();
+    </script>
+</body>
+</html>
